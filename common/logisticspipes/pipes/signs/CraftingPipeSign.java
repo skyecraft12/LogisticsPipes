@@ -2,6 +2,7 @@ package logisticspipes.pipes.signs;
 
 import java.util.List;
 
+import logisticspipes.asm.ClientSideOnlyMethodContent;
 import logisticspipes.modules.ModuleCrafter;
 import logisticspipes.modules.abstractmodules.LogisticsModule.ModulePositionType;
 import logisticspipes.network.PacketHandler;
@@ -12,6 +13,7 @@ import logisticspipes.pipes.basic.CoreRoutedPipe;
 import logisticspipes.renderer.LogisticsRenderPipe;
 import logisticspipes.utils.item.ItemIdentifierStack;
 import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -26,6 +28,9 @@ import cpw.mods.fml.relauncher.SideOnly;
 public class CraftingPipeSign implements IPipeSign {
 	public CoreRoutedPipe pipe;
 	public ForgeDirection dir;
+	
+	@SideOnly(Side.CLIENT)
+	private Framebuffer buffer;
 	
 	@Override
 	public boolean isAllowedFor(CoreRoutedPipe pipe) {
@@ -63,7 +68,7 @@ public class CraftingPipeSign implements IPipeSign {
 	
 	@Override
 	@SideOnly(Side.CLIENT)
-	public void render(CoreRoutedPipe pipe, LogisticsRenderPipe renderer) {
+	public void renderReal(CoreRoutedPipe pipe, LogisticsRenderPipe renderer) {
 		PipeItemsCraftingLogistics cpipe = (PipeItemsCraftingLogistics)pipe;
 		FontRenderer var17 = renderer.func_147498_b();
 		if(cpipe != null) {
@@ -108,5 +113,24 @@ public class CraftingPipeSign implements IPipeSign {
 			GL11.glDepthMask(true);
 			GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
 		}
+	}
+
+	@Override
+	public Framebuffer getFrameBuffer(int width, int height) {
+		if(buffer == null) {
+			buffer = new Framebuffer(width, height, true);
+		}
+		return buffer;
+	}
+
+	@Override
+	public boolean needsBufferRefresh() {
+		// TODO Auto-generated method stub
+		return buffer == null;
+	}
+
+	@Override
+	public void renderBuffer(CoreRoutedPipe pipe, LogisticsRenderPipe renderer) {
+		// TODO Auto-generated method stub
 	}
 }

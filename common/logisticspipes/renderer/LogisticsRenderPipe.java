@@ -1,5 +1,7 @@
 package logisticspipes.renderer;
 
+import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -7,7 +9,6 @@ import java.util.List;
 
 import logisticspipes.LPConstants;
 import logisticspipes.LogisticsPipes;
-import logisticspipes.config.Configs;
 import logisticspipes.config.PlayerConfig;
 import logisticspipes.pipes.basic.CoreRoutedPipe;
 import logisticspipes.pipes.basic.CoreUnroutedPipe;
@@ -26,14 +27,17 @@ import logisticspipes.utils.tuples.Pair;
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.model.ModelSign;
 import net.minecraft.client.renderer.GLAllocation;
+import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.RenderBlocks;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.entity.RenderItem;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.client.renderer.texture.TextureMap;
 import net.minecraft.client.renderer.tileentity.TileEntitySpecialRenderer;
+import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
@@ -52,6 +56,8 @@ import net.minecraftforge.fluids.FluidRegistry;
 import net.minecraftforge.fluids.FluidStack;
 
 import org.lwjgl.opengl.GL11;
+
+import scala.actors.threadpool.Arrays;
 
 
 public class LogisticsRenderPipe extends TileEntitySpecialRenderer {
@@ -283,26 +289,123 @@ public class LogisticsRenderPipe extends TileEntitySpecialRenderer {
 	private static final ResourceLocation	ITEMS	= new ResourceLocation("textures/atlas/items.png");
 	
 	private void renderSign(CoreRoutedPipe pipe, IPipeSign type) {
-		float var10 = 0.6666667F;
-		
-		GL11.glTranslatef(0.0F, -0.3125F, -0.31F);
-		GL11.glRotatef(180, 0.0f, 1.0f, 0.0f);
-		this.modelSign.signStick.showModel = false;
-		Minecraft.getMinecraft().renderEngine.bindTexture(SIGN);
-		
-		GL11.glPushMatrix();
-		GL11.glScalef(var10, -var10, -var10);
-		this.modelSign.renderSign();
-		GL11.glPopMatrix();
-		GL11.glTranslatef(-0.32F, 0.5F * var10 + 0.08F, 0.07F * var10);
-		
+
 		GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-		renderSignLabel(pipe, type);
+		
+		float var10 = 0.6666667F;
+		if(OpenGlHelper.isFramebufferEnabled()) {
+			int width = 256;
+			int height = 256;
+			boolean needsUpdate = type.needsBufferRefresh();
+			Framebuffer buffer = type.getFrameBuffer(width, height);
+			if(needsUpdate) {
+				GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+				GL11.glPushMatrix();
+				buffer.framebufferClear();
+				buffer.bindFramebuffer(false);
+				GL11.glMatrixMode(GL11.GL_PROJECTION);
+		        GL11.glLoadIdentity();
+		        GL11.glOrtho(0.0D, width, 0.0D, height, 1000.0D, 3000.0D);
+		        GL11.glMatrixMode(GL11.GL_MODELVIEW);
+		        GL11.glLoadIdentity();
+		        GL11.glTranslatef(0.0F, 0.0F, -2000.0F);
+		        GL11.glCullFace(GL11.GL_FRONT);
+		        ////GL11.glFrontFace(GL11.GL_CW);
+		        GL11.glDisable(GL11.GL_LIGHTING);
+		        GL11.glDisable(GL11.GL_FOG);
+		        GL11.glDisable(GL11.GL_DEPTH_TEST);
+		        GL11.glColor4d(1.0D, 1.0D, 1.0D, 1.0D);
+				Minecraft.getMinecraft().renderEngine.bindTexture(SIGN);
+				Tessellator tessellator = Tessellator.instance;
+				tessellator.setBrightness(Short.MAX_VALUE);
+				tessellator.startDrawingQuads();
+				tessellator.setNormal(0.0F, 1.0F, 0.0F);
+				tessellator.addVertexWithUV(0, height, 0, 0, 1);
+				tessellator.addVertexWithUV(width, height, 0, 1, 1);
+				tessellator.addVertexWithUV(width, 0, 0, 1, 0);
+				tessellator.addVertexWithUV(0, 0, 0, 0, 0);
+				tessellator.draw();
+
+				GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+				GL11.glPushMatrix();
+
+				GL11.glTranslatef(70F, 70F, 0.0F);
+				GL11.glScaled(1.0D, 1.2D, 1.0D);
+				
+				type.renderBuffer(pipe, this);
+				
+				GL11.glPopMatrix();
+				GL11.glPopAttrib();
+				
+				GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+				
+				buffer.unbindFramebuffer();
+				Minecraft.getMinecraft().getFramebuffer().bindFramebuffer(true);
+				GL11.glPopMatrix();
+				GL11.glPopAttrib();
+				
+				GL11.glPushMatrix();
+				Minecraft mc = Minecraft.getMinecraft();
+				ScaledResolution scaledresolution = new ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
+		        GL11.glMatrixMode(GL11.GL_PROJECTION);
+		        GL11.glLoadIdentity();
+		        GL11.glOrtho(0.0D, (double)scaledresolution.getScaledWidth(), (double)scaledresolution.getScaledHeight(), 0.0D, 1000.0D, 3000.0D);
+		        GL11.glMatrixMode(GL11.GL_MODELVIEW);
+		        GL11.glLoadIdentity();
+		        GL11.glTranslatef(0.0F, 0.0F, -2000.0F);
+		        GL11.glPopMatrix();
+			}
+			GL11.glTranslatef(0.0F, -0.3125F, -0.31F);
+			GL11.glRotatef(180, 0.0f, 1.0f, 0.0f);
+			this.modelSign.signStick.showModel = false;
+			buffer.bindFramebufferTexture();
+			
+			/*
+			GL11.glPushMatrix();
+			GL11.glMatrixMode(GL11.GL_PROJECTION);
+	        GL11.glLoadIdentity();
+	        GL11.glOrtho(0.0D, width, height, 0.0D, 1000.0D, 3000.0D);
+	        GL11.glMatrixMode(GL11.GL_MODELVIEW);
+	        GL11.glLoadIdentity();
+	        GL11.glTranslatef(0.0F, 0.0F, -2000.0F);
+	        GL11.glDisable(GL11.GL_FOG);
+	        GL11.glDisable(GL11.GL_LIGHTING);
+	        Tessellator tessellator = Tessellator.instance;
+			tessellator.setBrightness(Short.MAX_VALUE);
+			tessellator.startDrawingQuads();
+			tessellator.setNormal(0.0F, 1.0F, 0.0F);
+			tessellator.addVertexWithUV(0, height, 0, 0, 1);
+			tessellator.addVertexWithUV(width, height, 0, 1, 1);
+			tessellator.addVertexWithUV(width, 0, 0, 1, 0);
+			tessellator.addVertexWithUV(0, 0, 0, 0, 0);
+			tessellator.draw();
+	        GL11.glEnable(GL11.GL_FOG);
+			GL11.glPopMatrix();
+			//*/
+			
+			GL11.glPushMatrix();
+			GL11.glScalef(var10, -var10, -var10);
+			this.modelSign.renderSign();
+			GL11.glPopMatrix();
+			buffer.unbindFramebufferTexture();
+			
+		} else {
+			GL11.glTranslatef(0.0F, -0.3125F, -0.31F);
+			GL11.glRotatef(180, 0.0f, 1.0f, 0.0f);
+			this.modelSign.signStick.showModel = false;
+			Minecraft.getMinecraft().renderEngine.bindTexture(SIGN);
+			
+			GL11.glPushMatrix();
+			GL11.glScalef(var10, -var10, -var10);
+			this.modelSign.renderSign();
+			GL11.glPopMatrix();
+			GL11.glTranslatef(-0.32F, 0.5F * var10 + 0.08F, 0.07F * var10);
+			
+			GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+			type.renderReal(pipe, this);
+			GL11.glPopAttrib();
+		}
 		GL11.glPopAttrib();
-	}
-	
-	private void renderSignLabel(CoreRoutedPipe pipe, IPipeSign type) {
-		type.render(pipe, this);
 	}
 	
 	public void renderItemStackOnSign(ItemStack itemstack) {

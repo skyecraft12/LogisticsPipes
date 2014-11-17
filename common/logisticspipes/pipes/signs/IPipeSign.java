@@ -3,6 +3,7 @@ package logisticspipes.pipes.signs;
 import logisticspipes.network.abstractpackets.ModernPacket;
 import logisticspipes.pipes.basic.CoreRoutedPipe;
 import logisticspipes.renderer.LogisticsRenderPipe;
+import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.common.util.ForgeDirection;
@@ -21,5 +22,9 @@ public interface IPipeSign {
 	public ModernPacket getPacket();
 	public void updateServerSide();
 	@SideOnly(Side.CLIENT)
-	public void render(CoreRoutedPipe pipe, LogisticsRenderPipe renderer);
+	public void renderReal(CoreRoutedPipe pipe, LogisticsRenderPipe renderer);
+	@SideOnly(Side.CLIENT)
+	public Framebuffer getFrameBuffer(int width, int height);
+	public boolean needsBufferRefresh();
+	public void renderBuffer(CoreRoutedPipe pipe, LogisticsRenderPipe renderer);
 }

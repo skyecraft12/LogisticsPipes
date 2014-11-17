@@ -13,6 +13,7 @@ import logisticspipes.utils.ISimpleInventoryEventHandler;
 import logisticspipes.utils.item.ItemIdentifierInventory;
 import logisticspipes.utils.string.StringUtil;
 import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.Item;
@@ -31,6 +32,9 @@ public class ItemAmountPipeSign implements IPipeSign, ISimpleInventoryEventHandl
 	public int						amount		= 100;
 	public CoreRoutedPipe pipe;
 	public ForgeDirection dir;
+	
+	@SideOnly(Side.CLIENT)
+	private Framebuffer buffer;
 	
 	public ItemAmountPipeSign() {
 		itemTypeInv.addListener(this);
@@ -92,7 +96,7 @@ public class ItemAmountPipeSign implements IPipeSign, ISimpleInventoryEventHandl
 	
 	@Override
 	@SideOnly(Side.CLIENT)
-	public void render(CoreRoutedPipe pipe, LogisticsRenderPipe renderer) {
+	public void renderReal(CoreRoutedPipe pipe, LogisticsRenderPipe renderer) {
 		FontRenderer var17 = renderer.func_147498_b();
 		if(pipe != null) {
 			String name = "";
@@ -144,5 +148,69 @@ public class ItemAmountPipeSign implements IPipeSign, ISimpleInventoryEventHandl
 	
 	private void sendUpdatePacket() {
 		MainProxy.sendPacketToAllWatchingChunk(pipe.getX(), pipe.getZ(), MainProxy.getDimensionForWorld(pipe.getWorld()), getPacket());
+	}
+
+	@Override
+	public Framebuffer getFrameBuffer(int width, int height) {
+		if(buffer == null) {
+			buffer = new Framebuffer(width, height, true);
+		}
+		return buffer;
+	}
+
+	@Override
+	public boolean needsBufferRefresh() {
+		// TODO Auto-generated method stub
+		return buffer == null;
+	}
+
+	@Override
+	public void renderBuffer(CoreRoutedPipe pipe, LogisticsRenderPipe renderer) {
+		FontRenderer var17 = renderer.func_147498_b();
+		if(pipe != null) {
+			String name = "";
+			if(itemTypeInv != null && itemTypeInv.getIDStackInSlot(0) != null) {
+				ItemStack itemstack = itemTypeInv.getIDStackInSlot(0).unsafeMakeNormalStack();
+
+				GL11.glDepthMask(false);
+				GL11.glTranslated(0, 0, 100);
+				GL11.glScaled(1, -1, -1);
+				//GL11.glFrontFace(GL11.GL_CCW);
+				renderer.renderItemStackOnSign(itemstack);
+				Item item = itemstack.getItem();
+				//GL11.glFrontFace(GL11.GL_CW);
+				GL11.glScaled(1, -1, -1);
+
+				GL11.glDepthMask(false);
+				//GL11.glRotatef(-180.0F, 1.0F, 0.0F, 0.0F);
+				//GL11.glTranslatef(0.5F, +0.08F, 0.0F);
+				//GL11.glScalef(1.0F / 90.0F, 1.0F / 90.0F, 1.0F / 90.0F);
+				
+				try {
+					name = item.getItemStackDisplayName(itemstack);
+				} catch(Exception e) {
+					try {
+						name = item.getUnlocalizedName();
+					} catch(Exception e1) {}
+				}
+				
+				var17.drawString("ID: " + String.valueOf(Item.getIdFromItem(item)), -var17.getStringWidth("ID: " + String.valueOf(Item.getIdFromItem(item))) / 2, 0 * 10 - 4 * 5, 0);
+				String displayAmount = StringUtil.getFormatedStackSize(amount);
+				var17.drawString("Amount:", -var17.getStringWidth("Amount:") / 2, 1 * 10 - 4 * 5, 0);
+				var17.drawString(String.valueOf(displayAmount), -var17.getStringWidth(String.valueOf(displayAmount)) / 2, 2 * 10 - 4 * 5, 0);
+			} else {
+				//GL11.glRotatef(-180.0F, 1.0F, 0.0F, 0.0F);
+				//GL11.glTranslatef(0.5F, +0.08F, 0.0F);
+				//GL11.glScalef(1.0F / 90.0F, 1.0F / 90.0F, 1.0F / 90.0F);
+				name = "Empty";
+			}
+			
+			name = renderer.cut(name, var17);
+			
+			var17.drawString(name, -var17.getStringWidth(name) / 2 - 15, 10, 0);
+			
+			GL11.glDepthMask(true);
+			GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+		}
 	}
 }
